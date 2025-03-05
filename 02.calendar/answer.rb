@@ -10,14 +10,14 @@ class Calender
   end
 
   def show_calender()
-    puts (@target_date.mon.to_s + "月 " + @target_date.year.to_s) .center(20)
+    puts "#{@target_date.mon.to_s}月 #{@target_date.year.to_s}" .center(20)
     puts "日 月 火 水 木 金 土"
 
     days_in_month = Date.new(@target_date.year,@target_date.mon,-1).day
     first_day_of_week = Date.new(@target_date.year,@target_date.mon,1).wday
 
     #最初の行の前にスペース挿入
-    print "   " * first_day_of_week
+    print "".rjust(first_day_of_week * 3)
 
     (1..days_in_month).each do |day|
       printf("%2d ", day) 
@@ -46,17 +46,23 @@ year = options[:year] || Date.today.year
 month = options[:month] || Date.today.mon
 
 # 入力値のバリデーション
-if (year < 1970 || year > 2100) && (month < 1 || month > 12) 
-  puts "エラー: 年は 1970 〜 2100 の範囲で指定してください。"
-  puts "エラー: 月は 1 ～ 12 の範囲で指定してください。"
-  exit 1
-elsif year < 1970 || year > 2100
-  puts "エラー: 年は 1970 ～ 2100 の範囲で指定してください。"
-  exit 1
-elsif month < 1 || month > 12
-  puts "エラー: 月は 1 ～ 12 の範囲で指定してください。"
-  exit 1
+error_messages = []
+
+# 年の範囲チェック
+if year < 1970 || year > 2100
+  error_messages <<  "エラー: 年は 1970 ～ 2100 の範囲で指定してください。"
 end
+
+# 月の範囲チェック
+if month < 1 || month > 12
+  error_messages <<  "エラー: 月は 1 ～ 12 の範囲で指定してください。"
+end
+
+# エラーがあればまとめて表示
+if error_messages.any?
+  abort error_messages.join("\n")
+end
+
 
 calender = Calender.new(year, month)
 calender.show_calender
