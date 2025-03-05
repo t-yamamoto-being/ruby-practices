@@ -20,7 +20,7 @@ class Calender
     print "".rjust(first_day_of_week * 3)
 
     (1..days_in_month).each do |day|
-      printf("%2d ", day) 
+      printf "#{day.to_s.rjust(2)} " 
       puts if (day + first_day_of_week) % 7 == 0 #7日毎に改行
     end
     puts
