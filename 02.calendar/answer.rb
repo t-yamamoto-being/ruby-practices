@@ -48,17 +48,14 @@ month = options[:month] || Date.today.mon
 # 入力値のバリデーション
 error_messages = []
 
-# 年の範囲チェック
 if year < 1970 || year > 2100
   error_messages <<  "エラー: 年は 1970 ～ 2100 の範囲で指定してください。"
 end
 
-# 月の範囲チェック
 if month < 1 || month > 12
   error_messages <<  "エラー: 月は 1 ～ 12 の範囲で指定してください。"
 end
 
-# エラーがあればまとめて表示
 if error_messages.any?
   abort error_messages.join("\n")
 end
