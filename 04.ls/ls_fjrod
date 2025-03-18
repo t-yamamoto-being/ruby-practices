@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+
+class ListSegments
+  # items = files and dirs
+
+  MAX_COLS = 3.to_f
+
+  def initialize
+    # input all items in the current dir.
+    @items = Dir.entries('.').reject { |item| %w[. ..].include?(item) }.sort
+  end
+
+  def display_items
+    shape_and_display
+  end
+
+  private
+
+  def shape_and_display
+    # split and sort by cols
+    max_rows = (@items.length / MAX_COLS).ceil
+    cols = @items.each_slice(max_rows).to_a
+    ## case cols are missing
+    cols.each { |col| col.fill('', col.length...max_rows) }
+
+    cols.transpose.each do |row|
+      puts row.map { |item| dir_colorize(item) }.join(' ')
+    end
+  end
+
+  def dir_colorize(item)
+    aligned_item = item.ljust(20)
+    File.directory?(item) ? "\e[34m#{aligned_item}\e[0m" : aligned_item # output dir.name with blue
+  end
+end
+
+ListSegments.new.display_items
