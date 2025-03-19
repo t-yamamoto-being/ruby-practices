@@ -27,7 +27,6 @@ class ListSegments
   MAX_COLS = 3.to_f
 
   def initialize(show_all: false)
-    @show_all = show_all
     @items = Dir.entries('.').reject { |item| !show_all && item.start_with?('.') }.sort
   end
 
