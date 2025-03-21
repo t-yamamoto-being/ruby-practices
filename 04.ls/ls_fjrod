@@ -17,6 +17,10 @@ class OptionParserHandler
       opts.on('-a', '--all') do
         @options[:all] = true
       end
+
+      opts.on('-r', '--reverse') do
+        @options[:reverse] = true
+      end
     end.parse!
   end
 end
@@ -26,8 +30,9 @@ class ListSegments
 
   MAX_COLS = 3.to_f
 
-  def initialize(show_all: false)
+  def initialize(show_all: false, sort_reverse: false)
     @items = Dir.entries('.').reject { |item| !show_all && item.start_with?('.') }.sort
+    @items.reverse! if sort_reverse
   end
 
   def display_items
@@ -55,4 +60,7 @@ class ListSegments
 end
 
 option_handler = OptionParserHandler.new
-ListSegments.new(show_all: option_handler.options[:all]).display_items
+ListSegments.new(
+  show_all: option_handler.options[:all],
+  sort_reverse: option_handler.options[:reverse]
+).display_items
