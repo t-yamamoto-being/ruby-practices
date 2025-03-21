@@ -1,13 +1,33 @@
 #!/usr/bin/env ruby
 
+require 'optparse'
+
+class OptionParserHandler
+  attr_reader :options
+
+  def initialize
+    @options = {}
+    parse_options
+  end
+
+  private
+
+  def parse_options
+    OptionParser.new do |opts|
+      opts.on('-a', '--all') do
+        @options[:all] = true
+      end
+    end.parse!
+  end
+end
+
 class ListSegments
   # items = files and dirs
 
   MAX_COLS = 3.to_f
 
-  def initialize
-    # input all items in the current dir.
-    @items = Dir.entries('.').reject { |item| %w[. ..].include?(item) }.sort
+  def initialize(show_all: false)
+    @items = Dir.entries('.').reject { |item| !show_all && item.start_with?('.') }.sort
   end
 
   def display_items
@@ -34,4 +54,5 @@ class ListSegments
   end
 end
 
-ListSegments.new.display_items
+option_handler = OptionParserHandler.new
+ListSegments.new(show_all: option_handler.options[:all]).display_items
