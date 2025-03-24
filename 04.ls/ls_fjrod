@@ -1,12 +1,17 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
+require 'etc'
 
 class OptionParserHandler
   attr_reader :options
 
   def initialize
-    @options = {}
+    @options = {
+      all: false,
+      reverse: false,
+      long: false
+    }
     parse_options
   end
 
@@ -14,34 +19,63 @@ class OptionParserHandler
 
   def parse_options
     OptionParser.new do |opts|
-      opts.on('-a', '--all') do
-        @options[:all] = true
-      end
-
-      opts.on('-r', '--reverse') do
-        @options[:reverse] = true
-      end
+      opts.on('-a', '--all') { @options[:all] = true }
+      opts.on('-r', '--reverse') { @options[:reverse] = true }
+      opts.on('-l', '--long_format') { @options[:long] = true }
     end.parse!
   end
 end
 
-class ListSegments
-  # items = files and dirs
+# items = files and dirs
+class FileLister
+  attr_reader :items
 
-  MAX_COLS = 3.to_f
-
-  def initialize(show_all: false, sort_reverse: false)
-    @items = Dir.entries('.').reject { |item| !show_all && item.start_with?('.') }.sort
-    @items.reverse! if sort_reverse
-  end
-
-  def display_items
-    shape_and_display
+  def initialize(options)
+    @options = options
+    @items = fetch_files
   end
 
   private
 
-  def shape_and_display
+  def fetch_files
+    files = Dir.entries('.')
+    files = apply_hidden_filter(files)
+    apply_sorting(files)
+  end
+
+  def apply_hidden_filter(files)
+    @options[:all] ? files : files.reject { |item| item.start_with?('.') }
+  end
+
+  def apply_sorting(files)
+    files.sort!
+    files.reverse! if @options[:reverse]
+    files
+  end
+end
+
+class Formatter
+  # items = files and dirs
+
+  MAX_COLS = 3.to_f
+  FILE_TYPES = { 'file' => '-', 'directory' => 'd', 'symlink' => 'l' }.freeze
+
+  def initialize(items, options)
+    @items = items
+    @options = options
+  end
+
+  def display_items
+    if @options[:long]
+      display_detailed_list
+    else
+      display_columes
+    end
+  end
+
+  private
+
+  def display_columes
     # split and sort by cols
     max_rows = (@items.length / MAX_COLS).ceil
     cols = @items.each_slice(max_rows).to_a
@@ -53,6 +87,35 @@ class ListSegments
     end
   end
 
+  def display_detailed_list
+    total_blocks = @items.sum { |item| File.lstat(item).blocks } / 2 # adjust of the num of blocks
+    puts "total #{total_blocks}"
+    @items.each do |item|
+      lstats = File.lstat(item)
+      mode = format_mode(item, lstats.mode)
+      nlink = lstats.nlink.to_s.rjust(3)
+      owner_name = Etc.getpwuid(lstats.uid).name
+      group_name = Etc.getgrgid(lstats.gid).name
+      size = lstats.size.to_s.rjust(5)
+      time = lstats.mtime.strftime('%b %d %H:%M')
+      puts "#{mode} #{nlink} #{owner_name} #{group_name} #{size} #{time} #{dir_colorize(item)}"
+    end
+  end
+
+  def format_mode(item, mode)
+    (FILE_TYPES[File.ftype(item)] || '?') + permission_string(mode)
+  end
+
+  def permission_string(mode)
+    permissions = [
+      [0o400, 'r'], [0o200, 'w'], [0o100, 'x'],
+      [0o040, 'r'], [0o020, 'w'], [0o010, 'x'],
+      [0o004, 'r'], [0o002, 'w'], [0o001, 'x']
+    ]
+
+    permissions.map { |bit, char| (mode & bit != 0 ? char : '-') }.join('')
+  end
+
   def dir_colorize(item)
     aligned_item = item.ljust(20)
     File.directory?(item) ? "\e[34m#{aligned_item}\e[0m" : aligned_item # output dir.name with blue
@@ -60,7 +123,6 @@ class ListSegments
 end
 
 option_handler = OptionParserHandler.new
-ListSegments.new(
-  show_all: option_handler.options[:all],
-  sort_reverse: option_handler.options[:reverse]
-).display_items
+file_lister = FileLister.new(option_handler.options)
+formatter = Formatter.new(file_lister.items, option_handler.options)
+formatter.display_items
