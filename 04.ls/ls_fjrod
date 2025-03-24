@@ -7,11 +7,7 @@ class OptionParserHandler
   attr_reader :options
 
   def initialize
-    @options = {
-      all: false,
-      reverse: false,
-      long: false
-    }
+    @options = { all: false, reverse: false, long: false }
     parse_options
   end
 
