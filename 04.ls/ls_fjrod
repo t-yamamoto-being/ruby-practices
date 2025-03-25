@@ -1,12 +1,13 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
+require 'etc'
 
 class OptionParserHandler
   attr_reader :options
 
   def initialize
-    @options = {}
+    @options = { all: false, reverse: false, long: false }
     parse_options
   end
 
@@ -14,53 +15,109 @@ class OptionParserHandler
 
   def parse_options
     OptionParser.new do |opts|
-      opts.on('-a', '--all') do
-        @options[:all] = true
-      end
-
-      opts.on('-r', '--reverse') do
-        @options[:reverse] = true
-      end
+      opts.on('-a', '--all') { @options[:all] = true }
+      opts.on('-r', '--reverse') { @options[:reverse] = true }
+      opts.on('-l', '--long_format') { @options[:long] = true }
     end.parse!
   end
 end
 
-class ListSegments
-  # items = files and dirs
+# 'DirectoryContents' or 'dir_contents' = files and directories in the directories
+class ScanningDirectoryContents
+  attr_reader :dir_contents
 
-  MAX_COLS = 3.to_f
-
-  def initialize(show_all: false, sort_reverse: false)
-    @items = Dir.entries('.').reject { |item| !show_all && item.start_with?('.') }.sort
-    @items.reverse! if sort_reverse
-  end
-
-  def display_items
-    shape_and_display
+  def initialize(options)
+    @options = options
+    @dir_contents = fetch_dir_contents
   end
 
   private
 
-  def shape_and_display
+  def fetch_dir_contents
+    dir_contents = Dir.entries('.')
+    dir_contents = apply_hidden_filter(dir_contents)
+    apply_sorting(dir_contents)
+  end
+
+  def apply_hidden_filter(dir_contents)
+    @options[:all] ? dir_contents : dir_contents.reject { |dir_content| dir_content.start_with?('.') }
+  end
+
+  def apply_sorting(dir_contents)
+    dir_contents.sort!
+    dir_contents.reverse! if @options[:reverse]
+    dir_contents
+  end
+end
+
+class PrintingDirectoryContents
+  MAX_COLS = 3.to_f
+  FILE_TYPES = { 'file' => '-', 'directory' => 'd', 'symlink' => 'l' }.freeze
+
+  def initialize(dir_contents, options)
+    @dir_contents = dir_contents
+    @options = options
+  end
+
+  def display_dir_contents
+    if @options[:long]
+      display_detailed_list
+    else
+      display_columes
+    end
+  end
+
+  private
+
+  def display_columes
     # split and sort by cols
-    max_rows = (@items.length / MAX_COLS).ceil
-    cols = @items.each_slice(max_rows).to_a
+    max_rows = (@dir_contents.length / MAX_COLS).ceil
+    cols = @dir_contents.each_slice(max_rows).to_a
     ## case cols are missing
     cols.each { |col| col.fill('', col.length...max_rows) }
 
     cols.transpose.each do |row|
-      puts row.map { |item| dir_colorize(item) }.join(' ')
+      puts row.map { |dir_content| dir_colorize(dir_content) }.join(' ')
     end
   end
 
-  def dir_colorize(item)
-    aligned_item = item.ljust(20)
-    File.directory?(item) ? "\e[34m#{aligned_item}\e[0m" : aligned_item # output dir.name with blue
+  def display_detailed_list
+    total_blocks = @dir_contents.sum { |dir_content| File.lstat(dir_content).blocks } / 2 # adjust of the num of blocks
+    puts "total #{total_blocks}"
+
+    max_nlink_width = @dir_contents.map { |dir_content| File.lstat(dir_content).nlink.to_s.length }.max
+    max_size_width = @dir_contents.map { |dir_content| File.lstat(dir_content).size.to_s.length }.max
+
+    @dir_contents.each do |dir_content|
+      lstats = File.lstat(dir_content)
+      mode = format_mode(dir_content, lstats.mode)
+      nlink = lstats.nlink.to_s.rjust(max_nlink_width)
+      owner_name = Etc.getpwuid(lstats.uid).name
+      group_name = Etc.getgrgid(lstats.gid).name
+      size = lstats.size.to_s.rjust(max_size_width)
+      time = lstats.mtime.strftime('%b %d %H:%M')
+      puts [mode, nlink, owner_name, group_name, size, time, dir_colorize(dir_content)].join(' ')
+    end
+  end
+
+  def format_mode(dir_content, mode)
+    (FILE_TYPES[File.ftype(dir_content)] || '?') + permission_string(mode)
+  end
+
+  def permission_string(mode)
+    permission_symbols = %w[r w x]
+    permission_bits = (0..8).map { |i| 0o400 >> i }
+
+    permission_bits.map.with_index { |permission_bit, i| (mode & permission_bit).zero? ? '-' : permission_symbols[i % 3] }.join('')
+  end
+
+  def dir_colorize(dir_content)
+    aligned_dir_content = dir_content.ljust(20)
+    File.directory?(dir_content) ? "\e[34m#{aligned_dir_content}\e[0m" : aligned_dir_content # output dir.name with blue
   end
 end
 
 option_handler = OptionParserHandler.new
-ListSegments.new(
-  show_all: option_handler.options[:all],
-  sort_reverse: option_handler.options[:reverse]
-).display_items
+scanned_dir_contents = ScanningDirectoryContents.new(option_handler.options)
+printed_dir_contents = PrintingDirectoryContents.new(scanned_dir_contents.dir_contents, option_handler.options)
+printed_dir_contents.display_dir_contents
