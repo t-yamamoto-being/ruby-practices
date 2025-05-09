@@ -100,7 +100,7 @@ class WcFormatter
     fields << counts[:lines].to_s.rjust(4) if @options[:lines]
     fields << counts[:words].to_s.rjust(4) if @options[:words]
     fields << counts[:bytes].to_s.rjust(4) if @options[:bytes]
-    fields << filename unless @stdin_mode && filename == '-'
+    fields << filename if !@stdin_mode
     puts fields.join(' ')
   end
 end
