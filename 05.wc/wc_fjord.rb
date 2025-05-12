@@ -32,12 +32,7 @@ class FileContentReader
   end
 
   def read_contents
-    if @stdin_mode && $stdin.tty?
-      warn 'wc_fjord.rb: no input files and no piped data'
-      exit 1
-    end
-
-    return { '-' => $stdin.read } if @stdin_mode
+    return { 'stdin' => $stdin.read } if @stdin_mode
 
     @files.each_with_object({}) do |filename, hash|
       hash[filename] = File.read(filename)
@@ -100,7 +95,7 @@ class WcFormatter
     fields << counts[:lines].to_s.rjust(4) if @options[:lines]
     fields << counts[:words].to_s.rjust(4) if @options[:words]
     fields << counts[:bytes].to_s.rjust(4) if @options[:bytes]
-    fields << filename if !@stdin_mode
+    fields << filename if filename != 'stdin'
     puts fields.join(' ')
   end
 end
