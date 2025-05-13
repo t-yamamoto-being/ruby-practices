@@ -32,7 +32,7 @@ class FileContentReader
   end
 
   def read_contents
-    return { 'stdin' => $stdin.read } if @stdin_mode
+    return { 'nil' => $stdin.read } if @stdin_mode
 
     @files.each_with_object({}) do |filename, hash|
       hash[filename] = File.read(filename)
@@ -95,7 +95,7 @@ class WcFormatter
     fields << counts[:lines].to_s.rjust(4) if @options[:lines]
     fields << counts[:words].to_s.rjust(4) if @options[:words]
     fields << counts[:bytes].to_s.rjust(4) if @options[:bytes]
-    fields << filename if filename != 'stdin'
+    fields << filename if filename != 'nil'
     puts fields.join(' ')
   end
 end
